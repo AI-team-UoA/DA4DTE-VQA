@@ -3,11 +3,6 @@ from os.path import isfile
 from typing import List
 from typing import Optional
 
-from flask import Flask, request, jsonify
-
-import numpy as np
-import tifffile
-
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
@@ -26,7 +21,6 @@ from configilm.ConfigILM import ILMType
 from configilm.extra.BEN_lmdb_utils import resolve_data_dir
 from configilm.extra.CustomTorchClasses import LinearWarmupCosineAnnealingLR
 from configilm.extra.DataModules.RSVQAxBEN_DataModule import RSVQAxBENDataModule
-from configilm.util import huggingface_tokenize_and_pad
 
 
 try:
@@ -64,6 +58,7 @@ class LitVisionEncoder(pl.LightningModule):
         self.model = ConfigILM.ConfigILM(config)
         self.val_output_list: List[dict] = []
         self.test_output_list: List[dict] = []
+        self.save_hyperparameters()
 
     def get_stats(self):
         # create example image
@@ -148,8 +143,6 @@ class LitVisionEncoder(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = self._disassemble_batch(batch)
         x_hat = self.model(x)
-        print("Printing LABELS:")
-        print(y)
         loss = F.binary_cross_entropy_with_logits(x_hat, y)
         self.test_output_list += [{"loss": loss, "outputs": x_hat, "labels": y}]
 
@@ -360,14 +353,6 @@ def main(
         max_img_idx=max_img_index,
         tokenizer=hf_tokenizer,
     )
-    
-    # dm.setup()
-    
-    # # Print actual content of datasets
-    # print("Sample from Train dataset:")
-    # for i in range(min(5, len(dm.train_ds))):  # Print first 5 samples or less
-    #     sample = dm.train_ds[i]
-    #     print("Sample {}: {}".format(i, sample))  # Adjust based on the structure of your samples
 
     logger.log_hyperparams(
         {
@@ -387,56 +372,7 @@ def main(
     trainer.fit(model=model, datamodule=dm)
     trainer.test(model=model, datamodule=dm, ckpt_path="best")
 
-
     print("=== Training finished ===")
-    
-    app = Flask(__name__)
-
-    def load_tif_images_as_tensor(file_path):
-        tif_stack = tifffile.imread(file_path)
-        torch_tensor = torch.from_numpy(tif_stack)
-        return torch_tensor
-    
-    # IMPORTANT: Because we are training with RSVQAxBEN until the provided dataset is fixed!
-    def process_image(image_tensor):
-        image_tensor = np.transpose(image_tensor, (2, 0, 1))
-        image_tensor = image_tensor[:, :120, :120]
-
-        pad_width = ((0, 10 - image_tensor.shape[0]), (0, 0), (0, 0))
-        image_tensor = np.pad(image_tensor, pad_width, mode='constant', constant_values=0)
-        image_tensor = (image_tensor - image_tensor.min()) / (image_tensor.max() - image_tensor.min())
-        image_tensor = torch.tensor(image_tensor.astype(np.float32))
-
-        return image_tensor
-    
-    @app.route('/predict', methods=['POST'])
-    def predict():
-        try:
-            # Get image file and string from the request
-            file = request.files['image']
-            question = request.form['string']
-
-            # Save the file temporarily
-            file_path = '/tmp/uploaded_image.tif'
-            file.save(file_path)
-
-            image_tensor = load_tif_images_as_tensor(file_path)
-            image_tensor = process_image(image_tensor)
-
-            # Make prediction
-            model.eval()
-            with torch.no_grad():
-                output = model((torch.unsqueeze(image_tensor, dim=0), torch.unsqueeze(torch.tensor(huggingface_tokenize_and_pad(hf_tokenizer, question, 32)), dim=0)))
-
-            prediction = "yes" if torch.max(output, dim=1)[0] > 0.5 else "no"
-
-            return jsonify({'prediction': prediction})
-
-        except Exception as e:
-            return jsonify({'error': str(e)})
-
-    if __name__ == '__main__':
-        app.run(host='0.0.0.0')
 
 
 if __name__ == "__main__":
