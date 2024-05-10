@@ -33,7 +33,6 @@ RUN apt-get install -y python3-pip
 
 # Copy the requirements.txt file into the container
 COPY conda_env.yml /tmp/
-COPY requirements.txt /tmp/
 
 # Download and install Miniconda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
