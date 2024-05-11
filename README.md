@@ -32,6 +32,6 @@ To build the docker image run:
 
 To run the docker container image run:
 
-      sudo docker run --name vqa-container-p 5000:8080 vqa
+      sudo docker run --name vqa-container -p 5000:8080 vqa
 
 After a short delay vqa_server will be online on http://localhost:5000
