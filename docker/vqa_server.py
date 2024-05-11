@@ -79,7 +79,7 @@ def main(
             file.save(file_path)
 
             image_tensor = load_tif_images_as_tensor(file_path)
-            image_tensor = process_image(image_tensor)
+            # image_tensor = process_image(image_tensor)
 
             # Make prediction
             model.eval()
