@@ -22,7 +22,7 @@ Run `vqa_server.py` with the appropriate options (port and model checkpoint are 
 
 ## Docker setup
 
-Enter the `docke` directory:
+Enter the `docker` directory:
 
       cd docker/
 
