@@ -20,10 +20,10 @@ from lit4rsvqa import LitVisionEncoder
 
 def load_tif_images_as_tensor(file_path):
     tif_stack = tifffile.imread(file_path)
-    torch_tensor = torch.from_numpy(tif_stack)
+    tif_stack_float32 = tif_stack.astype(np.float32)
+    torch_tensor = torch.from_numpy(tif_stack_float32)
     return torch_tensor
 
-# IMPORTANT: Because we are training with RSVQAxBEN until the provided dataset is fixed!
 def process_image(image_tensor):
     image_tensor = np.transpose(image_tensor, (2, 0, 1))
     image_tensor = image_tensor[:, :120, :120]
@@ -49,7 +49,7 @@ def main(
     pl.seed_everything(seed, workers=True)
 
     model = LitVisionEncoder.load_from_checkpoint(model_checkpoint_path)
-
+    model = model.to("cuda")
     print(
         f"Model Stats: Params: {model.get_stats()['params']:15,d}\n"
         f"              Flops: {model.get_stats()['flops']:15,d}"
@@ -79,12 +79,15 @@ def main(
             file.save(file_path)
 
             image_tensor = load_tif_images_as_tensor(file_path)
+            image_tensor = image_tensor.permute(2, 0, 1)  
             # image_tensor = process_image(image_tensor)
-
+            image_tensor = image_tensor.to("cuda")
+            tokenizer =  torch.tensor(huggingface_tokenize_and_pad(hf_tokenizer, question, 32))
+            tokenizer = tokenizer.to("cuda")
             # Make prediction
             model.eval()
             with torch.no_grad():
-                output = model((torch.unsqueeze(image_tensor, dim=0), torch.unsqueeze(torch.tensor(huggingface_tokenize_and_pad(hf_tokenizer, question, 32)), dim=0)))
+                output = model((torch.unsqueeze(image_tensor, dim=0), torch.unsqueeze(tokenizer, dim=0)))
 
             prediction = "yes" if torch.max(output, dim=1)[0] > 0.5 else "no"
 
