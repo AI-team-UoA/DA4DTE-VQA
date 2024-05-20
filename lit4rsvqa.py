@@ -268,8 +268,8 @@ def main(
     vision_model: str = "mobilevit_s",
     text_model: str = "prajjwal1/bert-tiny",
     lr: float = 5e-4,
-    epochs: int = 10,
-    batch_size: int = 512,
+    epochs: int = 0,
+    batch_size: int = 128,
     seed: int = 42,
     data_dir: Optional[str] = None,
     test_run: bool = False,
@@ -331,11 +331,14 @@ def main(
         log_every_n_steps=5,
         logger=logger,
         check_val_every_n_epoch=2,
+        limit_test_batches=0.4,
         callbacks=[checkpoint_callback, lr_monitor],
     )
 
-    model = LitVisionEncoder(config=model_config, lr=lr)
-    model = overwrite_vision_weights(model, vision_checkpoint)
+    # model = LitVisionEncoder(config=model_config, lr=lr)
+    # model = overwrite_vision_weights(model, vision_checkpoint)
+    
+    model = LitVisionEncoder.load_from_checkpoint("./checkpoints/based.ckpt")
 
     print(
         f"Model Stats: Params: {model.get_stats()['params']:15,d}\n"
@@ -370,7 +373,7 @@ def main(
     )
 
     trainer.fit(model=model, datamodule=dm)
-    trainer.test(model=model, datamodule=dm, ckpt_path="best")
+    trainer.test(model=model, datamodule=dm, ckpt_path=None) #ckpt_path="./checkpoints/based.ckpt")
 
     print("=== Training finished ===")
 
