@@ -28,7 +28,7 @@ Enter the `docker` directory:
 
 To build the docker image run:
 
-      docker build -t vqa .
+      sudo docker build -t vqa .
 
 To run the docker container image run:
 
