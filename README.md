@@ -1,6 +1,16 @@
 # DA4DTE-VQA
 
-Visual Question Answering engine for DA4DTE. Temporarily uses RSVQAxBEN for training. 
+Visual Question Answering engine for DA4DTE. Uses RSVQAxBEN for training therefore only Sentinel-2 images (10-bands) are supported.
+
+## Input
+
+The model takes input in the form of a question in natural language (English) and a Sentinel-2 image with 10 bands and 120x120 dimensions. 
+
+##### The bands must be combined as follows:
+
+```
+["B02", "B03", "B04", "B08", "B05", "B06", "B07", "B11", "B12", "B8A"]
+```
 
 ## Setup
 
