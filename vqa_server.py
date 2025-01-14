@@ -12,6 +12,85 @@ from configilm.ConfigILM import ILMType
 from configilm.util import huggingface_tokenize_and_pad
 from lit4rsvqa import LitVisionEncoder
 
+import torch
+from torchvision import transforms
+import rasterio
+import io
+import numpy as np
+
+
+
+BEN_MEAN = torch.Tensor(
+    [
+        429.9430203,
+        614.21682446,
+        590.23569706,
+        2218.94553375,
+        950.68368468,
+        1792.46290469,
+        2075.46795189,
+        1594.42694882,
+        1009.32729131,
+        2266.46036911,
+        -12.619993741972035,
+        -19.29044597721542,
+    ]
+)
+BEN_STD = torch.Tensor(
+    [
+        572.41639287,
+        582.87945694,
+        675.88746967,
+        1365.45589904,
+        729.89827633,
+        1096.01480586,
+        1273.45393088,
+        1079.19066363,
+        818.86747235,
+        1356.13789355,
+        5.115911777546365,
+        5.464428464912864,
+    ]
+)
+
+def  preprocess_image_vqa(img_tensor):
+    # img_array = load_img_from_remote(img)
+    #img_tensor = torch.from_numpy(img).float()
+    # with rasterio.open(img) as src:
+    #     image_data = src.read()
+    #     num_bands = image_data.shape[0]
+    #     print(f"Number of bands: {num_bands}")
+    #     img_tensor = image_data.astype(np.float64)
+
+    print(img_tensor.shape)
+    # img_tensor = torch.from_numpy(img_tensor).float().to("cpu")
+
+    if img_tensor.shape[0] == 10 and img_tensor.shape[1] == 120 and img_tensor.shape[2] == 120:
+        mean, std = BEN_MEAN[:10], BEN_STD[:10]
+        resize_size = (120,120)
+    else:
+        mean, std = BEN_MEAN[10:], BEN_STD[10:]
+        resize_size = (120,120)
+
+    preprocess_transform = transforms.Compose([
+        transforms.Resize(resize_size, antialias=True),
+        transforms.Normalize(mean, std),
+    ])
+    contents=  preprocess_transform(img_tensor)
+    return contents
+
+    # with rasterio.open(img) as src:
+    #     output_meta = src.meta.copy()
+    #     output_meta.update(compress='lzw')
+    #     output_meta.update(count=contents.shape[0])
+    # virtual_file = io.BytesIO()
+
+    # with rasterio.open(virtual_file, 'w', **output_meta) as dst:
+    #     for i in range(1, contents.shape[0]+1):
+    #         dst.write(contents[i-1], i)
+    # virtual_file.seek(0)
+    # return virtual_file
+
 def load_tif_images_as_tensor(file_path):
     tif_stack = tifffile.imread(file_path)
     tif_stack_float32 = tif_stack.astype(np.float32)
@@ -91,6 +170,11 @@ def main(
             image_tensor = image_tensor.permute(2, 0, 1)
             image_tensor = image_tensor.to("cuda")
             
+            # print(image_tensor)
+            # print("transform")
+            # image_tensor = preprocess_image_vqa(image_tensor)
+            # print(image_tensor)
+            
             tokenizer = torch.tensor(huggingface_tokenize_and_pad(hf_tokenizer, question, 32))
             tokenizer = tokenizer.to("cuda")
             
@@ -101,10 +185,12 @@ def main(
                               torch.unsqueeze(tokenizer, dim=0)))
                 
                 # Process the output using softmax
+                # print(output)
+                
                 result = process_model_output(output, selected_answers)
                 
                 print(f"Prediction: {result}")
-                return jsonify(result)
+                return jsonify({'prediction': result['answer']})
                 
         except Exception as e:
             return jsonify({'error': str(e)})
